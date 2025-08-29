@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mini OJ</title>
+  <link rel="stylesheet" href="/static/main.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Mini Online Judge</div>
+    <div class="user">ID: {{ student_id }} <a href="/logout" class="logout">Logout</a></div>
+  </header>
+
+  <div class="container">
+    <div class="sidebar">
+      <label for="problem_select">เลือกโจทย์</label>
+      <select id="problem_select"></select>
+
+      <div class="problem-info">
+        <h2 id="p_title"></h2>
+        <pre id="p_signature" class="signature"></pre>
+        <div id="p_desc" class="desc"></div>
+      </div>
+    </div>
+
+    <div class="main">
+      <h3>เขียนฟังก์ชัน</h3>
+      <textarea id="code" spellcheck="false"></textarea>
+      <div class="actions">
+        <button id="run_btn">รันทดสอบ</button>
+        <span id="run_status" class="muted"></span>
+      </div>
+      <div id="results"></div>
+    </div>
+  </div>
+
+  <script>
+    const PROBLEMS = {{ problems_json | safe }};
+
+    const selectEl = document.getElementById('problem_select');
+    const titleEl = document.getElementById('p_title');
+    const sigEl = document.getElementById('p_signature');
+    const descEl = document.getElementById('p_desc');
+    const codeEl = document.getElementById('code');
+    const runBtn = document.getElementById('run_btn');
+    const statusEl = document.getElementById('run_status');
+    const resultsEl = document.getElementById('results');
+
+    const idxById = new Map(PROBLEMS.map((p, i) => [p.id, i]));
+
+    function populateDropdown() {
+      for (const p of PROBLEMS) {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = `${p.id} — ${p.title}`;
+        selectEl.appendChild(opt);
+      }
+    }
+
+    function loadProblem(pid) {
+      const i = idxById.get(pid);
+      if (i === undefined) return;
+      const p = PROBLEMS[i];
+      titleEl.textContent = `${p.title}`;
+      sigEl.textContent = p.function_signature;
+      descEl.textContent = '';
+      for (const line of p.description.split('\n')) {
+        const div = document.createElement('div');
+        div.textContent = line;
+        descEl.appendChild(div);
+      }
+      codeEl.value = p.template_code || p.function_signature + '\n    pass\n';
+      resultsEl.innerHTML = '';
+      statusEl.textContent = '';
+    }
+
+    function renderResults(data) {
+      resultsEl.innerHTML = '';
+      if (data.status === 'tle') {
+        const b = document.createElement('div');
+        b.className = 'alert';
+        b.textContent = 'Time Limit Exceeded';
+        resultsEl.appendChild(b);
+        return;
+      }
+      if (data.status === 'error') {
+        const b = document.createElement('div');
+        b.className = 'alert';
+        b.textContent = data.error || 'ERROR';
+        resultsEl.appendChild(b);
+        return;
+      }
+
+      const summary = document.createElement('div');
+      summary.className = 'summary';
+      summary.textContent = `ผ่าน ${data.summary.passed}/${data.summary.total} เคส (ใช้เวลา ${data.elapsed}s)`;
+      resultsEl.appendChild(summary);
+
+      for (const t of data.tests) {
+        const row = document.createElement('div');
+        row.className = 'trow ' + (t.ok ? 'ok' : 'fail');
+        const left = document.createElement('div');
+        left.className = 'tcell';
+        left.textContent = `#${t.index}`;
+
+        const mid = document.createElement('div');
+        mid.className = 'tcell';
+        mid.textContent = `args=${JSON.stringify(t.args)} kwargs=${JSON.stringify(t.kwargs)}`;
+
+        const right = document.createElement('div');
+        right.className = 'tcell';
+        if (t.error) {
+          right.textContent = t.error;
+        } else {
+          right.textContent = `expected=${JSON.stringify(t.expected)} got=${JSON.stringify(t.got)}`;
+        }
+
+        row.appendChild(left);
+        row.appendChild(mid);
+        row.appendChild(right);
+        resultsEl.appendChild(row);
+      }
+    }
+
+    runBtn.addEventListener('click', async () => {
+      const pid = selectEl.value;
+      const code = codeEl.value;
+      statusEl.textContent = 'กำลังรัน...';
+      resultsEl.innerHTML = '';
+      try {
+        const res = await fetch('/api/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ problem_id: pid, code })
+        });
+        const data = await res.json();
+        renderResults(data);
+      } catch (err) {
+        resultsEl.innerHTML = '<div class="alert">Network error</div>';
+      } finally {
+        statusEl.textContent = '';
+      }
+    });
+
+    // Init
+    populateDropdown();
+    if (PROBLEMS.length > 0) {
+      selectEl.value = PROBLEMS[0].id;
+      loadProblem(selectEl.value);
+    }
+    selectEl.addEventListener('change', () => loadProblem(selectEl.value));
+  </script>
+</body>
+</html>
+

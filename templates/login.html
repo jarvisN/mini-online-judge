@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mini OJ - Login</title>
+  <link rel="stylesheet" href="/static/main.css" />
+</head>
+<body>
+  <div class="container narrow">
+    <h1>Mini Online Judge</h1>
+    <div class="card">
+      <h2>เข้าสู่ระบบ</h2>
+      {% if error %}
+      <div class="alert">{{ error }}</div>
+      {% endif %}
+      <form method="post" action="/login">
+        <label for="student_id">เลขประจำตัวนักเรียน</label>
+        <input id="student_id" name="student_id" type="text" placeholder="เช่น 65001" required />
+        <button type="submit">เข้าสู่ระบบ</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>
+
